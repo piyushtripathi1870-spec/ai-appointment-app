@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Appointment - Business Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-5 right-5 hidden px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 transform translate-x-full z-50"></div>
+
+    <nav id="main-nav" class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-lg">
+        <h1 class="text-xl font-bold">Business Settings</h1>
+        <a href="dashboard.html" class="bg-blue-500 px-4 py-2 rounded hover:bg-blue-400">Back to Dashboard</a>
+    </nav>
+
+    <main class="p-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-6 text-gray-800">Customize Your Branding</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Company Name</label>
+                        <input type="text" id="company-name" class="w-full p-2 mt-1 border rounded" placeholder="e.g. Elite Dental Care">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Logo URL</label>
+                        <input type="text" id="logo-url" class="w-full p-2 mt-1 border rounded" placeholder="https://example.com/logo.png">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Brand Color</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <input type="color" id="brand-color" class="h-10 w-20 border rounded cursor-pointer">
+                            <input type="text" id="brand-color-hex" class="flex-1 p-2 border rounded" placeholder="#2563eb">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Business Description</label>
+                        <textarea id="company-desc" class="w-full p-2 mt-1 border rounded" rows="3"></textarea>
+                    </div>
+                    <button onclick="saveSettings()" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition">Save Branding</button>
+
+                    <hr class="my-6">
+                    <h3 class="text-xl font-semibold text-gray-800">Subscription Plan</h3>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-sm text-gray-600">Current Plan:</span>
+                            <span id="current-tier" class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-blue-100 text-blue-700">Starter</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="upgradePlan('professional')" class="p-2 text-sm bg-white border rounded hover:bg-gray-100 transition">Upgrade to Professional</button>
+                            <button onclick="upgradePlan('enterprise')" class="p-2 text-sm bg-white border rounded hover:bg-gray-100 transition">Upgrade to Enterprise</button>
+                        </div>
+                    </div>
+
+                    <div id="domain-section" class="hidden space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Custom Domain</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="custom-domain" class="flex-1 p-2 border rounded" placeholder="example.com">
+                            <button onclick="saveDomain()" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 transition">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000/api";
+
+        function showNotification(message, type = 'error') {
+            const notification = document.getElementById('notification');
+            notification.innerText = message;
+            notification.className = `fixed top-5 right-5 px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.classList.remove('hidden');
+            setTimeout(() => { notification.classList.remove('translate-x-full'); }, 10);
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => { notification.classList.add('hidden'); }, 300);
+            }, 4000);
+        }
+
+        async function loadSettings() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const company = data.company;
+
+                    document.getElementById('company-name').value = company.name || '';
+                    document.getElementById('logo-url').value = company.logo_url || '';
+                    document.getElementById('brand-color').value = company.brand_color || '#2563eb';
+                    document.getElementById('brand-color-hex').value = company.brand_color || '#2563eb';
+                    document.getElementById('company-desc').value = company.description || '';
+
+                    // Update Subscription UI
+                    const tier = company.subscription_tier || 'starter';
+                    document.getElementById('current-tier').innerText = tier;
+
+                    if (tier === 'enterprise') {
+                        document.getElementById('domain-section').classList.remove('hidden');
+                        document.getElementById('custom-domain').value = company.custom_domain || '';
+                    } else {
+                        document.getElementById('domain-section').classList.add('hidden');
+                    }
+
+                    // Apply initial branding to nav
+                    document.getElementById('main-nav').style.backgroundColor = company.brand_color;
+                }
+            } catch (e) {
+                showNotification('Error loading settings.');
+            }
+        }
+
+        async function upgradePlan(tier) {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch(`${API_BASE}/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                const companyId = data.company.id;
+
+                const res = await fetch(`${API_BASE}/company/${companyId}/subscription?tier=${tier}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    showNotification(`Upgraded to ${tier} successfully!`, 'success');
+                    loadSettings();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.detail || 'Failed to upgrade plan');
+                }
+            } catch (e) {
+                showNotification('Network error occurred.');
+            }
+        }
+
+        async function saveDomain() {
+            const token = localStorage.getItem('token');
+            const domain = document.getElementById('custom-domain').value;
+            try {
+                const response = await fetch(`${API_BASE}/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                const companyId = data.company.id;
+
+                const res = await fetch(`${API_BASE}/company/${companyId}/domain?domain=${domain}`, {
+                    method: 'PATCH',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    showNotification('Custom domain saved successfully!', 'success');
+                } else {
+                    const err = await res.json();
+                    showNotification(err.detail || 'Failed to save domain');
+                }
+            } catch (e) {
+                showNotification('Network error occurred.');
+            }
+        }
+
+        // Sync color picker and hex input
+        document.getElementById('brand-color').addEventListener('input', (e) => {
+            document.getElementById('brand-color-hex').value = e.target.value;
+        });
+        document.getElementById('brand-color-hex').addEventListener('input', (e) => {
+            document.getElementById('brand-color').value = e.target.value;
+        });
+
+        async function saveSettings() {
+            const token = localStorage.getItem('token');
+            const name = document.getElementById('company-name').value;
+            const logo = document.getElementById('logo-url').value;
+            const color = document.getElementById('brand-color').value;
+            const desc = document.getElementById('company-desc').value;
+
+            // We need the company_id. For now, we assume the owner's company_id is what we update.
+            // In a real app, we'd get this from the user profile.
+            // Since we don't have a /me endpoint yet, we'll fetch it from the dashboard response.
+            const response = await fetch(`${API_BASE}/dashboard`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            const companyId = data.company.id; // Wait, the dashboard response doesn't have the ID yet.
+
+            // I'll update the API to include the ID in the dashboard response in the next step.
+            // For now, let's assume the company ID is known or we'll use "DEFAULT_COMPANY" for the first one.
+            // Actually, I'll fix the API to include the ID first.
+
+            const updateData = {
+                name: name,
+                logo_url: logo,
+                brand_color: color,
+                description: desc
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/company/${companyId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updateData)
+                });
+
+                if (res.ok) {
+                    showNotification('Branding updated successfully!', 'success');
+                } else {
+                    const err = await res.json();
+                    showNotification(err.detail || 'Failed to update settings');
+                }
+            } catch (e) {
+                showNotification('Network error occurred.');
+            }
+        }
+
+        loadSettings();
+    </script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Appointment - Book</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-5 right-5 hidden px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 transform translate-x-full z-50"></div>
+
+    <nav id="main-nav" class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <img id="company-logo" src="" alt="Logo" class="h-10 w-10 rounded-full hidden">
+            <h1 id="company-name" class="text-xl font-bold">AI Appointment Booking</h1>
+        </div>
+        <a href="dashboard.html" class="bg-blue-500 px-4 py-2 rounded hover:bg-blue-400">Back to Dashboard</a>
+    </nav>
+
+    <main class="p-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Chat with AI Scheduler</h2>
+
+                <div id="chat-box" class="h-80 overflow-y-auto p-4 border rounded bg-gray-50 mb-4 flex flex-col gap-3">
+                    <div class="bg-blue-100 text-blue-800 p-2 rounded-lg self-start max-w-xs">
+                        Hello! I can help you book an appointment. Just tell me when you'd like to come in!
+                    </div>
+                    <div id="loading-indicator" class="hidden bg-gray-200 text-gray-500 p-2 rounded-lg self-start max-w-xs italic text-sm">
+                        AI is thinking...
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="user-input" placeholder="e.g. Book me for tomorrow at 3pm" class="flex-1 p-2 border rounded">
+                    <button onclick="sendBooking()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Send</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000/api";
+
+        async function loadBranding() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const company = data.company;
+
+                    // Apply Branding
+                    const nav = document.getElementById('main-nav');
+                    const nameEl = document.getElementById('company-name');
+                    const logoEl = document.getElementById('company-logo');
+                    const sendBtn = document.querySelector('button[onclick="sendBooking()"]');
+
+                    nav.style.backgroundColor = company.brand_color;
+                    nameEl.innerText = company.name;
+
+                    if (company.logo_url) {
+                        logoEl.src = company.logo_url;
+                        logoEl.classList.remove('hidden');
+                    }
+
+                    if (sendBtn) {
+                        sendBtn.style.backgroundColor = company.brand_color;
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading branding:', e);
+            }
+        }
+
+        function showNotification(message, type = 'error') {
+
+            const notification = document.getElementById('notification');
+            notification.innerText = message;
+            notification.className = `fixed top-5 right-5 px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.classList.remove('hidden');
+
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 10);
+
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 300);
+            }, 4000);
+        }
+
+        async function sendBooking() {
+            const inputField = document.getElementById('user-input');
+            const chatBox = document.getElementById('chat-box');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const text = inputField.value;
+            const token = localStorage.getItem('token');
+
+            if (!text) return;
+            if (!token) {
+                showNotification('Please login first!');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Add user message to chat
+            chatBox.innerHTML += `<div class="bg-gray-200 text-gray-800 p-2 rounded-lg self-end max-w-xs">${text}</div>`;
+            inputField.value = '';
+
+            // Show loading indicator
+            loadingIndicator.classList.remove('hidden');
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch(`${API_BASE}/book`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await response.json();
+
+                // Remove loading indicator
+                loadingIndicator.classList.add('hidden');
+
+                // Add AI response to chat
+                chatBox.innerHTML += `<div class="bg-blue-100 text-blue-800 p-2 rounded-lg self-start max-w-xs">${data.response}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {
+                loadingIndicator.classList.add('hidden');
+                showNotification('Error connecting to server.');
+            }
+        }
+    </script>
+</body>
+</html>
