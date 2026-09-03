@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Appointment - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-5 right-5 hidden px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 transform translate-x-full z-50"></div>
+
+    <div class="bg-white p-8 rounded-lg shadow-md w-96">
+        <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">AI Scheduler</h1>
+
+        <div id="auth-container">
+            <!-- Login Form -->
+            <div id="login-form">
+                <h2 class="text-lg font-semibold mb-4">Login</h2>
+                <input type="email" id="login-email" placeholder="Email" class="w-full p-2 mb-3 border rounded">
+                <input type="password" id="login-password" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">Login</button>
+                <p class="mt-4 text-sm text-center">Don't have an account? <a href="#" onclick="toggleAuth()" class="text-blue-600">Sign up</a></p>
+            </div>
+
+            <!-- Signup Form -->
+            <div id="signup-form" class="hidden">
+                <h2 class="text-lg font-semibold mb-4">Sign Up</h2>
+                <input type="email" id="signup-email" placeholder="Email" class="w-full p-2 mb-3 border rounded">
+                <input type="password" id="signup-password" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+                <button onclick="handleSignup()" class="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 transition">Register</button>
+                <p class="mt-4 text-sm text-center">Already have an account? <a href="#" onclick="toggleAuth()" class="text-blue-600">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        function showNotification(message, type = 'error') {
+            const notification = document.getElementById('notification');
+            notification.innerText = message;
+            notification.className = `fixed top-5 right-5 px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.classList.remove('hidden');
+
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 10);
+
+            // Animate out and hide
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 300);
+            }, 4000);
+        }
+
+        function toggleAuth() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('signup-form').classList.toggle('hidden');
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.access_token);
+                    window.location.href = 'dashboard.html';
+                } else {
+                    const err = await response.json();
+                    showNotification(`Login failed: ${err.detail || 'Incorrect credentials'}`);
+                }
+            } catch (error) {
+                showNotification('Unable to connect to the server. Please make sure the backend is running.');
+                console.error('Login error:', error);
+            }
+        }
+
+        async function handleSignup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+                    showNotification('Account created successfully! Please login.', 'success');
+                    setTimeout(toggleAuth, 1500);
+                } else {
+                    const err = await response.json();
+                    showNotification(`Signup failed: ${err.detail || 'Something went wrong'}`);
+                }
+            } catch (error) {
+                showNotification('Unable to connect to the server. Please make sure the backend is running.');
+                console.error('Signup error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

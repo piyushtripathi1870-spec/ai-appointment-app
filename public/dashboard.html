@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Appointment - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Notification Toast -->
+    <div id="notification" class="fixed top-5 right-5 hidden px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 transform translate-x-full z-50"></div>
+
+    <nav id="main-nav" class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <img id="company-logo" src="" alt="Logo" class="h-10 w-10 rounded-full hidden">
+            <h1 id="company-name" class="text-xl font-bold">AI Scheduler Dashboard</h1>
+        </div>
+        <div class="flex gap-4">
+            <a id="settings-link" href="settings.html" class="bg-blue-500 px-4 py-2 rounded hover:bg-blue-400 hidden">Settings</a>
+            <a href="booking.html" class="bg-blue-500 px-4 py-2 rounded hover:bg-blue-400">Book Appointment</a>
+            <button onclick="logout()" class="bg-red-500 px-4 py-2 rounded hover:bg-red-400">Logout</button>
+        </div>
+    </nav>
+
+    <main class="p-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="welcome-msg" class="text-2xl font-semibold text-gray-800">Loading...</h2>
+                    <span id="role-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"></span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                                <th class="py-3 px-6 border-b">ID</th>
+                                <th class="py-3 px-6 border-b">Date & Time</th>
+                                <th id="col-customer" class="py-3 px-6 border-b">Customer</th>
+                                <th class="py-3 px-6 border-b">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointments-body" class="text-gray-700 text-sm font-light">
+                            <!-- Data will be injected here -->
+                        </tbody>
+                    </table>
+                    <div id="empty-state" class="hidden text-center py-10 text-gray-500">
+                        No appointments found.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="config.js"></script>
+    <script>
+        function showNotification(message, type = 'error') {
+            const notification = document.getElementById('notification');
+            notification.innerText = message;
+            notification.className = `fixed top-5 right-5 px-6 py-3 rounded-lg shadow-lg text-white transition-all duration-300 z-50 ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.classList.remove('hidden');
+
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 10);
+
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 300);
+            }, 4000);
+        }
+
+        async function loadDashboard() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/dashboard`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setupUI(data);
+                } else {
+                    throw new Error('Unauthorized');
+                }
+            } catch (e) {
+                showNotification('Session expired. Please login again.');
+                logout();
+            }
+        }
+
+        function setupUI(data) {
+            const role = data.role;
+            const appointments = data.data;
+            const company = data.company;
+
+            // Apply Branding
+            const nav = document.getElementById('main-nav');
+            const nameEl = document.getElementById('company-name');
+            const logoEl = document.getElementById('company-logo');
+
+            nav.style.backgroundColor = company.brand_color;
+            nameEl.innerText = company.name;
+
+            if (company.logo_url) {
+                logoEl.src = company.logo_url;
+                logoEl.classList.remove('hidden');
+            }
+
+            // Owner Settings Link
+            if (role === 'owner') {
+                document.getElementById('settings-link').classList.remove('hidden');
+            }
+
+            // Hide "Book Appointment" button for owners
+            if (role === 'owner') {
+                const bookBtn = document.querySelector('a[href="booking.html"]');
+                if (bookBtn) bookBtn.classList.add('hidden');
+            }
+
+            // Welcome Message
+            document.getElementById('welcome-msg').innerText =
+                role === 'owner' ? "Business Owner Dashboard" : "My Appointments";
+
+
+            // Role Badge
+            const badge = document.getElementById('role-badge');
+            badge.innerText = role;
+            badge.className = role === 'owner'
+                ? "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-700"
+                : "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-700";
+
+            // Column Visibility: Hide customer column for clients (they already know it's them)
+            if (role !== 'owner') {
+                document.getElementById('col-customer').classList.add('hidden');
+            }
+
+            // Render Table
+            const body = document.getElementById('appointments-body');
+            const empty = document.getElementById('empty-state');
+            body.innerHTML = '';
+
+            if (!appointments || appointments.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+            appointments.forEach(appt => {
+                const row = document.createElement('tr');
+                row.className = "border-b hover:bg-gray-50 transition";
+                row.innerHTML = `
+                    <td class="py-3 px-6 font-medium">${appt.id}</td>
+                    <td class="py-3 px-6">${appt.time}</td>
+                    <td class="py-3 px-6 ${role !== 'owner' ? 'hidden' : ''}">${appt.customer}</td>
+                    <td class="py-3 px-6">${appt.notes}</td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
