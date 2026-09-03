@@ -1,8 +1,15 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.api import router as api_router
 from app.db import init_db, SessionLocal
 from app.models import Company
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = FastAPI(title="AI Appointment Scheduler API")
 
@@ -39,8 +46,14 @@ def on_startup():
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")
-def root():
+def serve_index():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+@app.get("/api")
+def api_root():
     return {"message": "Welcome to the AI Appointment Scheduler API! Use /api/signup or /api/login to start."}
+
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

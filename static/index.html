@@ -34,9 +34,8 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script>
-        const API_BASE = "http://127.0.0.1:8000/api";
-
         function showNotification(message, type = 'error') {
             const notification = document.getElementById('notification');
             notification.innerText = message;
@@ -82,7 +81,7 @@
                     showNotification(`Login failed: ${err.detail || 'Incorrect credentials'}`);
                 }
             } catch (error) {
-                showNotification('Unable to connect to the server. Please make sure the backend is running on port 8000.');
+                showNotification('Unable to connect to the server. Please make sure the backend is running.');
                 console.error('Login error:', error);
             }
         }
@@ -106,7 +105,7 @@
                     showNotification(`Signup failed: ${err.detail || 'Something went wrong'}`);
                 }
             } catch (error) {
-                showNotification('Unable to connect to the server. Please make sure the backend is running on port 8000.');
+                showNotification('Unable to connect to the server. Please make sure the backend is running.');
                 console.error('Signup error:', error);
             }
         }

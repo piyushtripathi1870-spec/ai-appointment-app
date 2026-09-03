@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .ai_engine import AIEngine
@@ -6,7 +8,10 @@ from datetime import datetime
 
 class AppointmentScheduler:
     def __init__(self):
-        self.ai = AIEngine()
+        self.ai = AIEngine(
+            model=os.getenv("OLLAMA_MODEL", "gemma4"),
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+        )
 
     def process_request(self, db: Session, user_text: str, customer_id: int, company_id: str):
         """
